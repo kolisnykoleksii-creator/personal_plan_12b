@@ -374,9 +374,18 @@
 
         <!-- 1. ЗАГАЛЬНІ НАЛАШТУВАННЯ -->
         <div class="form-section">
-            <label class="form-label">Навчальний рік:</label>
-            <input type="text" id="in_year" class="form-input" value="2024/2025" oninput="updateView()">
-            <div class="grid grid-cols-2 gap-2 mt-2">
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="form-label">Навчальний рік:</label>
+                    <input type="text" id="in_year" class="form-input" value="2024/2025" oninput="updateView()">
+                </div>
+                <div>
+                    <label class="form-label">Тривал. (тижнів):</label>
+                    <div class="input-wrapper">
+                         <input type="text" id="in_sem_weeks" class="form-input pr-6" value="17" oninput="updateView()">
+                         <button class="clear-btn" onclick="clearInput('in_sem_weeks')">✕</button>
+                    </div>
+                </div>
                 <div>
                     <label class="form-label">Семестр (І/ІІ):</label>
                     <input type="text" id="in_semester" class="form-input" value="І-й" oninput="updateView()">
@@ -385,8 +394,6 @@
                     <label class="form-label">Курс:</label>
                     <input type="text" id="in_course" class="form-input" value="1" oninput="updateView()">
                 </div>
-            </div>
-            <div class="grid grid-cols-2 gap-2 mt-2">
                  <div>
                     <label class="form-label">Початок семестру:</label>
                     <input type="date" id="in_sem_start" class="form-input" value="2024-09-01" oninput="updateView()">
@@ -396,17 +403,9 @@
                     <input type="date" id="in_sem_end" class="form-input" value="2024-12-30" oninput="updateView()">
                 </div>
             </div>
-
-            <div class="mt-2">
-                <label class="form-label">Тривалість семестру (тижнів):</label>
-                <div class="input-wrapper">
-                     <input type="text" id="in_sem_weeks" class="form-input pr-6" value="17" oninput="updateView()">
-                     <button class="clear-btn" onclick="clearInput('in_sem_weeks')">✕</button>
-                </div>
-            </div>
             
             <div class="grid grid-cols-2 gap-2 mt-2 border-t pt-2">
-                <div class="col-span-2 text-xs font-bold text-gray-500 uppercase">Екзаменаційна сесія</div>
+                <div class="col-span-2 text-xs font-bold text-gray-500 uppercase leading-none mb-1">Екзаменаційна сесія</div>
                 <div>
                    <label class="form-label">Початок:</label>
                    <div class="input-wrapper">
