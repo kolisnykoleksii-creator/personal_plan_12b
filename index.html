@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Генератор семестрових планів (12-бальна)">
+    <meta name="theme-color" content="#e5e7eb">
+    <title>Семестровий план (12-бальна)</title>
+    <!-- Favicon placeholder -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📄</text></svg>">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        body {
+            font-family: 'Times New Roman', Times, serif;
+            background-color: #e5e7eb;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* --- САЙДБАР --- */
+        .sidebar {
+            width: 400px;
+            background: white;
+            border-right: 1px solid #ccc;
+            padding: 20px;
+            overflow-y: auto;
+            flex-shrink: 0;
+            z-index: 10;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            position: relative;
+            transition: all 0.3s ease-in-out;
+        }
+        
+        .sidebar.collapsed {
+            width: 0;
+            padding: 0;
+            border: none;
+            overflow: hidden;
+        }
+
+        .sidebar h2 {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #3b82f6;
+            padding-bottom: 0.5rem;
+        }
+        .form-section {
+            background: #f9fafb;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+            margin-bottom: 10px;
+        }
+        .form-label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #4b5563;
+            display: block;
+            margin-bottom: 4px;
+        }
+        .form-input, .form-select {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            background-color: #fff;
+        }
+        .form-select:focus, .form-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            text-align: center;
+        }
+        .btn-green { background-color: #10b981; color: white; }
+        .btn-green:hover { background-color: #059669; }
+        .btn-red { background-color: #ef4444; color: white; }
+        .btn-red:hover { background-color: #dc2626; }
+        .btn-blue { background-color: #3b82f6; color: white; }
+        .btn-gray { background-color: #4b5563; color: white; }
+        .btn-gray:hover { background-color: #374151; }
+        .btn-purple { background-color: #8b5cf6; color: white; }
+        .btn-purple:hover { background-color: #7c3aed; }
+        
+        /* --- ОБЛАСТЬ ПЕРЕГЛЯДУ --- */
+        .preview-area {
+            flex-grow: 1;
+            padding: 20px;
+            background-color: #525659;
+            overflow: auto;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            position: relative;
+        }
+
+        /* --- АРКУШ А4 ЛАНДШАФТ --- */
+        #page-content {
+            background: white;
+            width: 297mm;
+            height: 210mm;
+            box-shadow: 0 0 15px rgba(0,0,0,0.3);
+            display: flex;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        .half-page {
+            width: 50%;
+            height: 100%;
+            padding: 10mm 10mm 10mm 15mm;
+            position: relative;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .separator {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            border-left: 1px dashed #ccc;
+            z-index: 5;
+        }
+
+        .header-text { font-size: 10pt; line-height: 1.3; }
+        .bold { font-weight: bold; }
+        .underline-input {
+            border-bottom: 1px solid black;
+            display: inline-block;
+            min-width: 20px;
+            text-align: center;
+        }
+        
+        /* --- ТАБЛИЦІ --- */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9pt;
+            table-layout: fixed;
+        }
+        
+        th, td {
+            border: 1px solid black;
+            padding: 0; 
+            text-align: center;
+            vertical-align: middle;
+            overflow: hidden;
+            white-space: normal;
+        }
+
+        td { padding: 2px; }
+        
+        .thick-border { border: 2px solid black; }
+        .thick-bottom { border-bottom: 2px solid black; }
+        
+        tr.data-row {
+            height: 30px;
+        }
+        
+        tr.section-row td {
+            background-color: #e5e7eb;
+            font-weight: bold;
+            font-size: 8pt;
+            text-transform: uppercase;
+            padding: 2px 5px;
+            border-top: 2px solid black;
+            border-bottom: 2px solid black;
+        }
+        
+        th { font-weight: bold; font-size: 7.5pt; background-color: #fff; line-height: 1.1; }
+        
+        .code-font { font-size: 7pt !important; }
+
+        .subject-name {
+            text-align: left;
+            padding-left: 4px;
+            font-size: 8pt;
+            line-height: 1;
+        }
+
+        .th-content-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .v-text {
+            display: block;
+            transform: rotate(-90deg);
+            white-space: nowrap; 
+            text-align: center;
+            line-height: 1.0;
+            width: 100px; 
+            height: auto;
+        }
+        
+        .v-text-wrap {
+            white-space: normal;
+            width: 80px;
+            line-height: 1.0;
+        }
+
+        .top-info-block { height: 80px; overflow: hidden; margin-bottom: 5px; }
+        .course-info-block { height: 25px; margin-bottom: 5px; display: flex; justify-content: center; gap: 30px; align-items: flex-end; font-size: 0.9rem; font-weight: bold; }
+
+        .signatures-grid {
+            margin-top: auto;
+            display: grid;
+            grid-template-columns: 180px 100px 1fr;
+            gap: 5px;
+            font-size: 10pt;
+            align-items: end;
+        }
+        .sig-line { 
+            border-bottom: 1px solid black; 
+            text-align: center; 
+            font-size: 6pt; 
+            color: #000;
+            line-height: 1.2;
+        }
+
+        .clear-btn {
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1;
+            padding: 2px;
+            z-index: 10;
+        }
+        .clear-btn:hover { color: #ef4444; }
+        .input-wrapper { position: relative; width: 100%; }
+        
+        input[type="date"].pr-6 {
+            padding-right: 2rem;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 50;
+            display: none; justify-content: center; align-items: center;
+        }
+        .modal-content {
+            background: white; width: 90%; max-width: 900px; height: 90%;
+            border-radius: 8px; padding: 20px; display: flex; flex-direction: column;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        
+        #pdfModal .modal-content, #customAlertModal .modal-content { max-width: 400px; height: auto; }
+
+        @media print {
+            body { background: white; display: block; overflow: visible; }
+            .sidebar, .separator, #openSidebarBtn, .sidebar-toggle-close, .modal-overlay { display: none !important; }
+            .preview-area { padding: 0; background: white; display: block; }
+            #page-content { box-shadow: none; margin: 0; }
+            @page { size: A4 landscape; margin: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Modal for Custom Alerts & Confirms -->
+    <div id="customAlertModal" class="modal-overlay" style="z-index: 100;">
+        <div class="modal-content text-gray-800">
+            <h2 class="text-xl font-bold mb-4 border-b pb-2" id="alertTitle">Повідомлення</h2>
+            <p id="customAlertMessage" class="mb-4 whitespace-pre-wrap text-sm"></p>
+            <div class="flex justify-end gap-2" id="alertButtons">
+                <button onclick="document.getElementById('customAlertModal').style.display='none'" class="btn btn-blue w-auto px-4">ОК</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Lists -->
+    <div id="listsModal" class="modal-overlay">
+        <div class="modal-content text-gray-800">
+            <h2 class="text-xl font-bold mb-4 border-b pb-2">Редагування списків</h2>
+            <div class="grid grid-cols-2 gap-4 flex-grow overflow-auto mb-4">
+                <div class="flex flex-col h-full">
+                    <label class="font-bold text-sm mb-1">Студенти:</label>
+                    <textarea id="edit_list_students" class="border p-2 flex-grow resize-none text-sm"></textarea>
+                </div>
+                <div class="flex flex-col h-full">
+                    <label class="font-bold text-sm mb-1">Викладачі:</label>
+                    <textarea id="edit_list_teachers" class="border p-2 flex-grow resize-none text-sm"></textarea>
+                </div>
+                <div class="flex flex-col h-full">
+                    <label class="font-bold text-sm mb-1">Куратори:</label>
+                    <textarea id="edit_list_curators" class="border p-2 flex-grow resize-none text-sm"></textarea>
+                </div>
+                <div class="flex flex-col h-full">
+                    <label class="font-bold text-sm mb-1">Завідувачі відділення:</label>
+                    <textarea id="edit_list_heads" class="border p-2 flex-grow resize-none text-sm"></textarea>
+                </div>
+                <div class="flex flex-col h-full">
+                    <label class="font-bold text-sm mb-1">Назви розділів:</label>
+                    <textarea id="edit_list_sections" class="border p-2 flex-grow resize-none text-sm bg-gray-50"></textarea>
+                </div>
+                <div class="flex flex-col h-full">
+                    <label class="font-bold text-sm mb-1">Назви предметів:</label>
+                    <textarea id="edit_list_subjectsList" class="border p-2 flex-grow resize-none text-sm"></textarea>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button onclick="closeListsModal()" class="btn btn-gray w-auto px-4">Скасувати</button>
+                <button onclick="saveListsFromModal()" class="btn btn-green w-auto px-4">Зберегти списки</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for PDF Filename -->
+    <div id="pdfModal" class="modal-overlay">
+        <div class="modal-content text-gray-800">
+            <h2 class="text-xl font-bold mb-4 border-b pb-2">Збереження PDF</h2>
+            <label class="form-label mb-1">Введіть назву файлу:</label>
+            <input type="text" id="pdf_filename" class="border p-2 w-full mb-4 rounded" placeholder="semester_plan_12pt">
+            <div class="flex justify-end gap-2">
+                <button onclick="document.getElementById('pdfModal').style.display='none'" class="btn btn-gray w-auto px-4">Скасувати</button>
+                <button onclick="confirmDownload()" class="btn btn-red w-auto px-4">Завантажити</button>
+            </div>
+        </div>
+    </div>
+
+    <button id="openSidebarBtn" onclick="toggleSidebar()" class="fixed top-4 left-4 bg-gray-700 hover:bg-gray-900 text-white p-2 rounded shadow-lg z-50 no-print hidden transition">
+        ☰ Меню
+    </button>
+
+    <!-- Hidden File Input -->
+    <input type="file" id="csvFileInput" accept=".csv" style="display: none;" onchange="handleFileSelect(this)">
+
+    <div id="sidebar" class="sidebar text-gray-800 no-print">
+        <div class="flex justify-between items-start mb-4">
+            <h2>Семестровий план (12-б)</h2>
+            <div class="flex gap-2">
+                <button onclick="toggleSidebar()" class="text-gray-500 hover:text-black font-bold text-xl px-2 sidebar-toggle-close">✕</button>
+            </div>
+        </div>
+        
+        <div class="mb-4 flex flex-col gap-2">
+             <button onclick="openListsModal()" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded">📋 Редагувати списки</button>
+             
+             <!-- Дві кнопки для завантаження -->
+             <div class="flex gap-1">
+                 <button onclick="triggerCsvUpload('12point')" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] px-1 py-1 rounded flex flex-col items-center justify-center h-10 leading-tight">
+                     <span>📥 Завантажити .csv (12-бальна)</span>
+                 </button>
+             </div>
+        </div>
+
+        <!-- 1. ЗАГАЛЬНІ НАЛАШТУВАННЯ -->
+        <div class="form-section">
+            <label class="form-label">Навчальний рік:</label>
+            <input type="text" id="in_year" class="form-input" value="2024/2025" oninput="updateView()">
+            <div class="grid grid-cols-2 gap-2 mt-2">
+                <div>
+                    <label class="form-label">Семестр (І/ІІ):</label>
+                    <input type="text" id="in_semester" class="form-input" value="І-й" oninput="updateView()">
+                </div>
+                 <div>
+                    <label class="form-label">Курс:</label>
+                    <input type="text" id="in_course" class="form-input" value="1" oninput="updateView()">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2 mt-2">
+                 <div>
+                    <label class="form-label">Початок семестру:</label>
+                    <input type="date" id="in_sem_start" class="form-input" value="2024-09-01" oninput="updateView()">
+                </div>
+                 <div>
+                    <label class="form-label">Кінець семестру:</label>
+                    <input type="date" id="in_sem_end" class="form-input" value="2024-12-30" oninput="updateView()">
+                </div>
+            </div>
+
+            <div class="mt-2">
+                <label class="form-label">Тривалість семестру (тижнів):</label>
+                <div class="input-wrapper">
+                     <input type="text" id="in_sem_weeks" class="form-input pr-6" value="17" oninput="updateView()">
+                     <button class="clear-btn" onclick="clearInput('in_sem_weeks')">✕</button>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-2 mt-2 border-t pt-2">
+                <div class="col-span-2 text-xs font-bold text-gray-500 uppercase">Екзаменаційна сесія</div>
+                <div>
+                   <label class="form-label">Початок:</label>
+                   <div class="input-wrapper">
+                       <input type="date" id="in_exam_start" class="form-input pr-6" oninput="updateView()">
+                       <button class="clear-btn" onclick="clearInput('in_exam_start')">✕</button>
+                   </div>
+               </div>
+                <div>
+                   <label class="form-label">Кінець:</label>
+                   <div class="input-wrapper">
+                       <input type="date" id="in_exam_end" class="form-input pr-6" oninput="updateView()">
+                       <button class="clear-btn" onclick="clearInput('in_exam_end')">✕</button>
+                   </div>
+               </div>
+            </div>
+        </div>
+
+        <!-- 2. НАВЧАЛЬНІ КОМПОНЕНТИ -->
+        <hr class="my-4">
+        <h3 class="font-bold mb-2">Навчальні компоненти</h3>
+        <div id="subjects_list"></div>
+        <div class="flex gap-2 mt-2 mb-4">
+            <button onclick="addSubject()" class="btn btn-blue text-sm flex-1">+ Предмет</button>
+            <button onclick="addSection()" class="btn btn-gray text-sm flex-1">+ Розділ</button>
+        </div>
+        <hr class="mb-4">
+
+        <!-- 3. ДЕТАЛІ -->
+        <div class="form-section">
+            <label class="form-label">ПІБ Студента (Пошук у відомості):</label>
+            <select id="in_student" class="form-select" onchange="onStudentNameChange(this.value)"></select>
+             
+             <label class="form-label mt-2">Група:</label>
+            <input type="text" id="in_group" class="form-input" value="1Т11" oninput="updateView()">
+        </div>
+
+        <div class="form-section">
+            <label class="form-label">Підписи (Прізвища):</label>
+            <div class="grid grid-cols-1 gap-2">
+                <div>
+                    <label class="text-xs text-gray-500">Студент</label>
+                    <select id="in_sig_student" class="form-select" onchange="updateView()"></select>
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Куратор</label>
+                    <select id="in_sig_curator" class="form-select" onchange="updateView()"></select>
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Зав. відділення</label>
+                    <select id="in_sig_head" class="form-select" onchange="updateView()"></select>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-4 mb-10 flex flex-col gap-3">
+            <button onclick="openPdfModal()" class="btn btn-red py-3 shadow-md text-base">📄 Зберегти PDF</button>
+            <button onclick="resetData()" class="btn btn-gray text-xs opacity-80">Скинути всі дані</button>
+        </div>
+    </div>
+
+    <!-- PREVIEW AREA -->
+    <div class="preview-area text-black">
+        <div id="page-content">
+            <div class="separator no-print"></div>
+
+            <!-- ЛІВА ПОЛОВИНА -->
+            <div class="half-page" style="border-right: 1px dashed #ccc;">
+                
+                <div class="header-text top-info-block">
+                    <div><span class="bold">Навчальний рік</span> <span id="out_year" class="bold">2024/2025</span></div>
+                    <div><span class="bold">Семестр</span> <span id="out_semester" class="bold underline-input" style="width:30px">І-й</span> з <span id="out_sem_start" class="underline-input" style="width:70px">01.09.2024</span> р. до <span id="out_sem_end" class="underline-input" style="width:70px">30.12.2024</span> р.</div>
+                    <div class="mt-1"><span class="bold">Екзаменаційна сесія</span> з <span id="out_exam_start" class="underline-input" style="width:80px"></span> до <span id="out_exam_end" class="underline-input" style="width:80px"></span></div>
+                </div>
+
+                <div class="course-info-block">
+                    <div><span id="out_course_num" class="border-b border-black px-2">1</span> КУРС</div>
+                </div>
+
+                <!-- ЛІВА ТАБЛИЦЯ -->
+                <table class="thick-border">
+                    <colgroup>
+                        <col width="20">
+                        <col width="25">
+                        <col>
+                        <col width="28">
+                        <col width="28">
+                        <col width="28">
+                        <col width="25">
+                        <col width="25">
+                        <col width="25">
+                    </colgroup>
+                    <thead>
+                        <tr style="height: 30px;">
+                            <th rowspan="4">№<br>з/п</th>
+                            <th rowspan="4" class="code-font">Код<br>ОК</th>
+                            <th colspan="7" style="border-bottom: 2px solid black;">
+                                <span id="out_sem_header">1</span> СЕМЕСТР
+                            </th>
+                        </tr>
+                        <tr style="height: 20px;">
+                            <th rowspan="3">Назва освітнього<br>компонента</th>
+                            <th rowspan="3"><div class="th-content-wrapper"><span class="v-text">Кредити<br>ЄКТС</span></div></th>
+                            <th colspan="5">Кількість годин</th>
+                        </tr>
+                        <tr style="height: 20px;">
+                            <th rowspan="2"><div class="th-content-wrapper"><span class="v-text">Всього<br>за планом</span></div></th>
+                            <th rowspan="2"><div class="th-content-wrapper"><span class="v-text">Аудиторні<br>години</span></div></th>
+                            <th colspan="3" class="thick-bottom h-[20px]">з них</th> 
+                        </tr>
+                        <tr style="height: 70px;">
+                            <th><div class="th-content-wrapper"><span class="v-text">Лекції</span></div></th>
+                            <th><div class="th-content-wrapper"><span class="v-text">Практичні</span></div></th>
+                            <th><div class="th-content-wrapper"><span class="v-text">Лаборат.</span></div></th>
+                        </tr>
+                    </thead>
+                    <tbody id="table_body_left"></tbody>
+                    <tfoot>
+                         <tr style="height: 25px; font-weight: bold;">
+                            <td colspan="3" style="text-align: center;">Всього за семестр</td> 
+                            <td id="total_credits">0</td>
+                            <td></td><td></td><td></td><td></td><td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <div class="signatures-grid mt-4">
+                    <div>Здобувач освіти ФПО</div>
+                    <div class="sig-line">(підпис)</div>
+                    <div class="text-center font-bold" id="out_sig_student"></div>
+
+                    <div>Куратор групи</div>
+                    <div class="sig-line">(підпис)</div>
+                    <div class="text-center font-bold" id="out_sig_curator"></div> 
+                </div>
+            </div>
+
+            <!-- ПРАВА ПОЛОВИНА -->
+            <div class="half-page">
+                
+                <div class="header-text top-info-block flex justify-between items-start pt-2">
+                    <div style="margin-left: 20px;">
+                        ПІБ здобувача освіти <span id="out_student_name" class="bold underline-input" style="min-width: 150px;">Балах І.Д.</span><br>
+                        група <span id="out_group" class="bold underline-input" style="min-width: 50px;">1Т11</span>
+                    </div>
+                    <div class="text-right" style="margin-right: 20px;">
+                        <span id="out_student_name_top_right"></span>
+                    </div>
+                </div>
+
+                 <div class="course-info-block"></div>
+
+                <!-- ПРАВА ТАБЛИЦЯ -->
+                <table class="thick-border">
+                    <colgroup>
+                        <col width="30"> <!-- 1. Сам -->
+                        <col width="35"> <!-- 2. Курс -->
+                        <col width="65"> <!-- 3. Контроль -->
+                        <col width="90"> <!-- 4. Оцінки -->
+                        <col width="50"> <!-- 5. Дата -->
+                        <col>            <!-- 6. Прізвище -->
+                        <col width="45"> <!-- 7. Підпис -->
+                    </colgroup>
+                    <thead>
+                        <tr style="height: 30px;">
+                            <th colspan="7" style="border-bottom: 2px solid black;">Тривалість семестру <span id="out_sem_weeks" class="underline-input" style="width:30px; display:inline-block; border-bottom:none;">17</span> тижнів</th>
+                        </tr>
+                        <tr style="height: 20px;">
+                            <th class="thick-bottom h-[20px]"></th> 
+                            <th class="thick-bottom h-[20px]"></th> 
+                            
+                            <th rowspan="3"><div class="th-content-wrapper"><span class="v-text v-text-wrap" style="width: 110px;">Форма підсумкового контролю (екзамен, залік)</span></div></th>
+                            <th rowspan="2" style="border-bottom: 1px solid black;">Результати<br>контролю якості знань</th>
+                            <th rowspan="3"><div class="th-content-wrapper"><span class="v-text v-text-wrap" style="width: 110px;">Дата проведення підсумкового контролю</span></div></th>
+                            <th rowspan="3">Прізвище,<br>ініціали<br>викладача</th>
+                            <th rowspan="3"><div class="th-content-wrapper"><span class="v-text v-text-wrap" style="width: 110px;">Підпис викладача</span></div></th>
+                        </tr>
+                        <tr style="height: 20px;">
+                            <th colspan="2" class="thick-bottom h-[20px]"></th> 
+                        </tr>
+                        <tr style="height: 70px;">
+                            <th><div class="th-content-wrapper"><span class="v-text v-text-wrap">Самостійна робота</span></div></th>
+                            <th><div class="th-content-wrapper"><span class="v-text v-text-wrap">Курсові роботи (проекти)</span></div></th>
+                            <th style="font-size: 8pt; line-height: 1.1;">за національною<br>12-бальною<br>шкалою</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table_body_right"></tbody>
+                     <tfoot>
+                         <tr style="height: 25px;">
+                            <td colspan="7" style="border:none;">&nbsp;</td>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <div class="signatures-grid mt-4">
+                    <div>Завідувач відділення</div>
+                    <div class="sig-line">(підпис)</div>
+                    <div class="text-center font-bold" id="out_sig_head"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Custom Alert/Confirm System
+        let confirmCallback = null;
+        
+        function customAlert(msg) {
+            document.getElementById('alertTitle').innerText = 'Повідомлення';
+            document.getElementById('customAlertMessage').innerText = msg;
+            document.getElementById('alertButtons').innerHTML = '<button onclick="document.getElementById(\'customAlertModal\').style.display=\'none\'" class="btn btn-blue w-auto px-4">ОК</button>';
+            document.getElementById('customAlertModal').style.display = 'flex';
+        }
+
+        function customConfirm(msg, callback) {
+            document.getElementById('alertTitle').innerText = 'Підтвердження';
+            document.getElementById('customAlertMessage').innerText = msg;
+            confirmCallback = callback;
+            document.getElementById('alertButtons').innerHTML = `
+                <button onclick="closeCustomConfirm(false)" class="btn btn-gray w-auto px-4">Скасувати</button>
+                <button onclick="closeCustomConfirm(true)" class="btn btn-red w-auto px-4">Підтвердити</button>
+            `;
+            document.getElementById('customAlertModal').style.display = 'flex';
+        }
+
+        function closeCustomConfirm(result) {
+            document.getElementById('customAlertModal').style.display = 'none';
+            if (result && confirmCallback) confirmCallback();
+            confirmCallback = null;
+        }
+
+        const STORAGE_KEY = 'semester_plan_v2_data';
+        const LISTS_KEY = 'semester_plan_lists';
+        let parsedCSVData = null; 
+        let currentCsvSystem = '12point';
+
+        const SECTION_TITLES_DEFAULT = [
+            "Освітні компоненти, що формують загальні компетентності",
+            "Освітні компоненти, що формують спеціальні компетентності",
+            "Вибіркові освітні компоненти",
+            "Практична підготовка",
+            "Атестація здобувачів фахової перед вищої освіти"
+        ];
+
+        const defaultLists = {
+            students: ["Балах І.Д.", "Іваненко П.П.", "Петренко В.В."],
+            teachers: ["Соколов В.П.", "Купрієнко І.А.", "Шуміхіна Л.М.", "Зінченко Г.Б.", "Потапенко О.А.", "Носач Е.А.", "Доброскок О.В."],
+            curators: ["Колісник О.С.", "Мельник А.А."],
+            heads: ["Литвак Ю.П.", "Сидоренко Б.Б."],
+            subjectsList: [
+                "Історія української державності і права",
+                "Філософія і Культурологія",
+                "Соціологія",
+                "Іноземна мова (за професійним спрямуванням)",
+                "Основи транспортної екології",
+                "Безпека життєдіяльності та цивільний захист",
+                "Інженерна графіка та комп'ютерне проектування",
+                "Технічна механіка",
+                "Фізичне виховання"
+            ],
+            sections: SECTION_TITLES_DEFAULT,
+            control: ["залік", "екзамен"]
+        };
+
+        const defaultItemsData = [
+            { type: 'section', name: SECTION_TITLES_DEFAULT[0] },
+            { type: 'subject', code: "", name: "", credits: "", form: "", teacher: "", gradeNational: "", grade4: "" }
+        ];
+
+        const emptyTemplateItems = [
+            { type: 'section', name: SECTION_TITLES_DEFAULT[0] },
+            { type: 'subject', code: "", name: "", credits: "", form: "", teacher: "", gradeNational: "", grade4: "" }
+        ];
+
+        let items = JSON.parse(JSON.stringify(defaultItemsData));
+        let lists = JSON.parse(JSON.stringify(defaultLists));
+
+        function triggerCsvUpload(system) {
+            currentCsvSystem = system;
+            document.getElementById('csvFileInput').click();
+        }
+
+        // --- CSV HANDLING ---
+        function handleFileSelect(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            Papa.parse(file, {
+                header: false,
+                skipEmptyLines: true,
+                encoding: "windows-1251",
+                complete: function(results) {
+                    const success = processCSV(results.data, false);
+                    if (!success) {
+                        Papa.parse(file, {
+                            header: false,
+                            skipEmptyLines: true,
+                            encoding: "UTF-8",
+                            complete: function(retryResults) {
+                                const successUtf8 = processCSV(retryResults.data, true);
+                                if (!successUtf8) {
+                                     customAlert("Не вдалося знайти колонку 'Прізвище' у файлі. Перевірте формат.");
+                                }
+                            },
+                            error: function(err) { customAlert("Помилка читання (UTF-8): " + err.message); }
+                        });
+                    }
+                    input.value = '';
+                },
+                error: function(err) {
+                    Papa.parse(file, {
+                        header: false,
+                        skipEmptyLines: true,
+                        encoding: "UTF-8",
+                        complete: function(retryResults) { processCSV(retryResults.data, true); }
+                    });
+                }
+            });
+        }
+
+        function processCSV(data, showErrors) {
+            let headerRowIndex = -1;
+            for (let i = 0; i < Math.min(data.length, 15); i++) {
+                const rowStr = JSON.stringify(data[i]).toLowerCase();
+                if (rowStr.includes('прізвище') || rowStr.includes('name') || rowStr.includes('по батькові')) {
+                    headerRowIndex = i;
+                    break;
+                }
+            }
+
+            if (headerRowIndex === -1) return false; 
+
+            const headers = data[headerRowIndex].map(h => h ? h.toString().trim() : "");
+            const rows = data.slice(headerRowIndex + 1);
+            
+            parsedCSVData = {};
+
+            let nameIndex = headers.findIndex(h => h.toLowerCase().includes('прізвище') || h.toLowerCase().includes('name'));
+            if (nameIndex === -1) nameIndex = 1; 
+
+            const foundSubjects = headers.filter((h, i) => i !== nameIndex && h !== "" && !h.match(/^\d+$/));
+
+            rows.forEach(row => {
+                const rawName = row[nameIndex];
+                if (!rawName) return;
+
+                const normalizedName = normalizeName(rawName.toString());
+                parsedCSVData[normalizedName] = {};
+
+                headers.forEach((header, index) => {
+                    if (index !== nameIndex && header) {
+                        parsedCSVData[normalizedName][header.toLowerCase()] = row[index];
+                    }
+                });
+            });
+
+            if (showErrors || Object.keys(parsedCSVData).length > 0) {
+                 lists.students = Object.keys(parsedCSVData).sort();
+                 const subjectSet = new Set([...lists.subjectsList, ...foundSubjects]);
+                 lists.subjectsList = Array.from(subjectSet).sort();
+                 localStorage.setItem(LISTS_KEY, JSON.stringify(lists));
+                 
+                 populateSelects();
+                 renderSubjectsInput(); // Оновлюємо списки предметів у формі
+
+                 customAlert(`Файл успішно оброблено (${currentCsvSystem === '12point' ? '12-бальна система' : '4-бальна система'})!\n\nОновлено списки:\n- Студентів: ${Object.keys(parsedCSVData).length}\n- Предметів: ${foundSubjects.length}\n\nТепер оберіть студента зі списку.`);
+                 
+                 const currentStudent = document.getElementById('in_student').value;
+                 if (currentStudent) {
+                     fillGradesForStudent(currentStudent);
+                 }
+                 return true;
+            }
+            return false;
+        }
+
+        function normalizeName(fullName) {
+            if (!fullName) return "";
+            let cleanName = fullName.trim().replace(/^["']|["']$/g, '');
+            const parts = cleanName.split(/\s+/);
+            if (parts.length < 2) return cleanName;
+            
+            const surname = parts[0];
+            let initials = "";
+            if (parts.length >= 2) initials += parts[1][0].toUpperCase() + ".";
+            if (parts.length >= 3) initials += parts[2][0].toUpperCase() + ".";
+            
+            return `${surname} ${initials}`;
+        }
+
+        function onStudentNameChange(value) {
+            updateView(); 
+            if (parsedCSVData) {
+                fillGradesForStudent(value); 
+            }
+        }
+
+        function fillGradesForStudent(studentName) {
+            if (!parsedCSVData) return; 
+
+            const normalizedInput = normalizeName(studentName);
+            const studentKey = Object.keys(parsedCSVData).find(k => k === normalizedInput || k.startsWith(normalizedInput));
+
+            if (studentKey) {
+                const grades = parsedCSVData[studentKey];
+                let updated = false;
+
+                items.forEach((item, index) => {
+                    if (item.type === 'subject' && item.name) {
+                        const subjectNameLower = item.name.toLowerCase();
+                        const foundSubjectKey = Object.keys(grades).find(key => 
+                            key.includes(subjectNameLower) || subjectNameLower.includes(key)
+                        );
+
+                        if (foundSubjectKey) {
+                            const rawGrade = grades[foundSubjectKey];
+                            if (rawGrade) {
+                                const mapped = mapGrade(rawGrade.toString(), currentCsvSystem);
+                                item.gradeNational = mapped.national;
+                                item.grade4 = mapped.scale4;
+                                updated = true;
+                            }
+                        }
+                    }
+                });
+
+                if (updated) {
+                    renderSubjectsInput();
+                    renderTables();
+                    saveData();
+                }
+            }
+        }
+
+        function mapGrade(grade, system) {
+            const g = grade.toString().trim().toLowerCase();
+            
+            if (['зараховано', 'зар', 'зар.', 'з'].includes(g)) return { national: 'зараховано', scale4: 'зар' };
+            if (['не зараховано', 'н/з'].includes(g)) return { national: 'не зараховано', scale4: 'н/з' };
+            if (['не атестовано', 'н/а'].includes(g)) return { national: 'не атестовано', scale4: 'н/а' };
+            
+            if (system === '12point') {
+                const num = parseFloat(g);
+                if (!isNaN(num)) {
+                     return { national: grade.toString().trim(), scale4: grade.toString().trim() };
+                }
+            }
+            
+            if (['5', 'відмінно'].includes(g)) return { national: '5 (відмінно)', scale4: '5' };
+            if (['4', 'добре'].includes(g)) return { national: '4 (добре)', scale4: '4' };
+            if (['3', 'задовільно'].includes(g)) return { national: '3 (задовільно)', scale4: '3' };
+            if (['2', 'незадовільно'].includes(g)) return { national: '2 (незадовільно)', scale4: '2' };
+            
+            if (system !== '12point') {
+                if (g === '5') return { national: '5 (відмінно)', scale4: '5' };
+                if (g === '4') return { national: '4 (добре)', scale4: '4' };
+                if (g === '3') return { national: '3 (задовільно)', scale4: '3' };
+            }
+            
+            return { national: grade, scale4: grade }; 
+        }
+
+        function loadLists() {
+            const savedLists = localStorage.getItem(LISTS_KEY);
+            if (savedLists) {
+                lists = JSON.parse(savedLists);
+                if (!lists.sections) lists.sections = SECTION_TITLES_DEFAULT;
+            }
+            populateSelects();
+        }
+
+        function populateSelects() {
+            populateSelect('in_student', lists.students);
+            populateSelect('in_sig_student', lists.students);
+            populateSelect('in_sig_curator', lists.curators);
+            populateSelect('in_sig_head', lists.heads);
+        }
+
+        function populateSelect(id, array) {
+            const select = document.getElementById(id);
+            if (!select) return;
+            
+            const currentVal = select.value;
+            select.innerHTML = '';
+            
+            const empty = document.createElement('option');
+            empty.value = "";
+            empty.text = "- Оберіть -";
+            select.appendChild(empty);
+
+            array?.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item;
+                opt.text = item;
+                select.appendChild(opt);
+            });
+
+            if (currentVal && array.includes(currentVal)) {
+                select.value = currentVal;
+            }
+        }
+
+        function getOptionsHtml(array, selectedValue) {
+            let html = `<option value="" ${!selectedValue ? 'selected' : ''}>- Оберіть -</option>`;
+            array.forEach(item => {
+                html += `<option value="${item}" ${item === selectedValue ? 'selected' : ''}>${item}</option>`;
+            });
+            return html;
+        }
+
+        function openListsModal() {
+            document.getElementById('edit_list_students').value = lists.students.join('\n');
+            document.getElementById('edit_list_teachers').value = lists.teachers.join('\n');
+            document.getElementById('edit_list_curators').value = lists.curators.join('\n');
+            document.getElementById('edit_list_heads').value = lists.heads.join('\n');
+            document.getElementById('edit_list_subjectsList').value = (lists.subjectsList || []).join('\n');
+            document.getElementById('edit_list_sections').value = (lists.sections || SECTION_TITLES_DEFAULT).join('\n');
+            document.getElementById('listsModal').style.display = 'flex';
+        }
+
+        function closeListsModal() {
+            document.getElementById('listsModal').style.display = 'none';
+        }
+
+        function saveListsFromModal() {
+            lists.students = document.getElementById('edit_list_students').value.split('\n').filter(x => x.trim() !== '');
+            lists.teachers = document.getElementById('edit_list_teachers').value.split('\n').filter(x => x.trim() !== '');
+            lists.curators = document.getElementById('edit_list_curators').value.split('\n').filter(x => x.trim() !== '');
+            lists.heads = document.getElementById('edit_list_heads').value.split('\n').filter(x => x.trim() !== '');
+            lists.subjectsList = document.getElementById('edit_list_subjectsList').value.split('\n').filter(x => x.trim() !== '');
+            lists.sections = document.getElementById('edit_list_sections').value.split('\n').filter(x => x.trim() !== '');
+            
+            localStorage.setItem(LISTS_KEY, JSON.stringify(lists));
+            populateSelects();
+            renderSubjectsInput();
+            closeListsModal();
+        }
+
+        function saveData() {
+            const data = {
+                year: document.getElementById('in_year').value,
+                semester: document.getElementById('in_semester').value,
+                course: document.getElementById('in_course').value,
+                semStart: document.getElementById('in_sem_start').value,
+                semEnd: document.getElementById('in_sem_end').value,
+                semWeeks: document.getElementById('in_sem_weeks').value,
+                examStart: document.getElementById('in_exam_start').value,
+                examEnd: document.getElementById('in_exam_end').value,
+                student: document.getElementById('in_student').value,
+                group: document.getElementById('in_group').value,
+                sigStudent: document.getElementById('in_sig_student').value,
+                sigCurator: document.getElementById('in_sig_curator').value,
+                sigHead: document.getElementById('in_sig_head').value,
+                items: items 
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        }
+
+        function loadData() {
+            loadLists(); 
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    if(data.year) document.getElementById('in_year').value = data.year;
+                    if(data.semester) document.getElementById('in_semester').value = data.semester;
+                    if(data.course) document.getElementById('in_course').value = data.course;
+                    if(data.semStart) document.getElementById('in_sem_start').value = data.semStart;
+                    if(data.semEnd) document.getElementById('in_sem_end').value = data.semEnd;
+                    if(data.semWeeks) document.getElementById('in_sem_weeks').value = data.semWeeks;
+                    if(data.examStart) document.getElementById('in_exam_start').value = data.examStart;
+                    if(data.examEnd) document.getElementById('in_exam_end').value = data.examEnd;
+                    
+                    if(data.student) document.getElementById('in_student').value = data.student;
+                    if(data.group) document.getElementById('in_group').value = data.group;
+                    if(data.sigStudent) document.getElementById('in_sig_student').value = data.sigStudent;
+                    if(data.sigCurator) document.getElementById('in_sig_curator').value = data.sigCurator;
+                    if(data.sigHead) document.getElementById('in_sig_head').value = data.sigHead;
+                    
+                    if (data.items && Array.isArray(data.items)) {
+                        items = data.items;
+                    } else if (data.subjects && Array.isArray(data.subjects)) {
+                        items = data.subjects.map(s => ({...s, type: 'subject'}));
+                        items.unshift({ type: 'section', name: lists.sections[0] || SECTION_TITLES_DEFAULT[0] });
+                    }
+                } catch (e) {
+                    console.error("Error loading data", e);
+                }
+            }
+            renderSubjectsInput();
+            updateView(false); 
+        }
+
+        function resetData() {
+            customConfirm("Ви впевнені? Всі введені дані будуть очищені. Списки збережуться.", () => {
+                localStorage.removeItem(STORAGE_KEY);
+                
+                items = JSON.parse(JSON.stringify(emptyTemplateItems));
+                items[0].name = (lists.sections && lists.sections.length > 0) ? lists.sections[0] : SECTION_TITLES_DEFAULT[0];
+                
+                document.getElementById('in_year').value = "2024/2025";
+                document.getElementById('in_semester').value = "І-й";
+                document.getElementById('in_course').value = "1";
+                document.getElementById('in_sem_start').value = "2024-09-01";
+                document.getElementById('in_sem_end').value = "2024-12-30";
+                document.getElementById('in_sem_weeks').value = "17";
+                document.getElementById('in_exam_start').value = "";
+                document.getElementById('in_exam_end').value = "";
+                document.getElementById('in_student').value = "";
+                document.getElementById('in_group').value = "1Т11";
+                document.getElementById('in_sig_student').value = "";
+                document.getElementById('in_sig_curator').value = "";
+                document.getElementById('in_sig_head').value = "";
+
+                saveData(); 
+                renderSubjectsInput();
+                updateView(false); 
+            });
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const btn = document.getElementById('openSidebarBtn');
+            sidebar.classList.toggle('collapsed');
+            
+            if(sidebar.classList.contains('collapsed')) {
+                btn.classList.remove('hidden');
+            } else {
+                btn.classList.add('hidden');
+            }
+        }
+
+        function clearInput(id) {
+            const input = document.getElementById(id);
+            input.value = '';
+            input.focus();
+            updateView();
+        }
+
+        function renderSubjectsInput() {
+            const container = document.getElementById('subjects_list');
+            container.innerHTML = '';
+            
+            items.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = "mb-2 p-2 border rounded bg-white text-xs text-gray-800";
+                
+                const removeBtn = `<button onclick="removeItem(${index})" class="text-red-500 hover:text-red-700 font-bold ml-2 float-right">X</button>`;
+
+                if (item.type === 'section') {
+                    div.style.borderLeft = "4px solid #4b5563"; 
+                    div.style.backgroundColor = "#f3f4f6";
+                    
+                    div.innerHTML = `
+                        <div class="flex justify-between items-center mb-1">
+                            <strong class="text-gray-700 uppercase">Розділ</strong>
+                            ${removeBtn}
+                        </div>
+                        <select onchange="updateItem(${index}, 'name', this.value)" class="w-full border p-1 rounded font-bold text-sm text-gray-800 bg-white">
+                            ${getOptionsHtml(lists.sections || [], item.name)}
+                        </select>
+                    `;
+                } else {
+                    div.innerHTML = `
+                        <div class="flex justify-between mb-1">
+                            <strong>№ (авто)</strong>
+                            ${removeBtn}
+                        </div>
+                        <input type="text" placeholder="Код" value="${item.code || ''}" onchange="updateItem(${index}, 'code', this.value)" class="w-1/4 border p-1 mr-1 text-gray-800">
+                        
+                        <div class="relative w-2/3 inline-block">
+                             <select onchange="updateItem(${index}, 'name', this.value)" class="w-full border p-1 pr-6 form-select text-gray-800">
+                                ${getOptionsHtml(lists.subjectsList || [], item.name)}
+                            </select>
+                        </div>
+
+                        <div class="flex mt-1">
+                            <input type="number" placeholder="Кред" value="${item.credits || ''}" onchange="updateItem(${index}, 'credits', this.value)" class="w-1/4 border p-1 mr-1 text-gray-800">
+                            
+                            <div class="relative w-1/4 mr-1">
+                                <select onchange="updateItem(${index}, 'form', this.value)" class="w-full border p-1 pr-6 form-select text-gray-800">
+                                    ${getOptionsHtml(lists.control || ['залік', 'екзамен'], item.form)}
+                                </select>
+                            </div>
+                            
+                            <div class="relative w-1/2">
+                                <select onchange="updateItem(${index}, 'teacher', this.value)" class="w-full border p-1 pr-6 form-select text-gray-800">
+                                    ${getOptionsHtml(lists.teachers || [], item.teacher)}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="flex mt-1 gap-1">
+                             <input type="text" placeholder="Нац" value="${item.gradeNational || ''}" onchange="updateItem(${index}, 'gradeNational', this.value)" class="w-1/2 border p-1 text-center bg-gray-50 text-gray-600" title="Оцінка (Національна)">
+                             <input type="text" placeholder="12-бал" value="${item.grade4 || ''}" onchange="updateItem(${index}, 'grade4', this.value)" class="w-1/2 border p-1 text-center bg-gray-50 text-gray-600" title="Оцінка (12-бальна)">
+                        </div>
+                    `;
+                }
+                container.appendChild(div);
+            });
+        }
+
+        function renderTables() {
+            const tbodyLeft = document.getElementById('table_body_left');
+            const tbodyRight = document.getElementById('table_body_right');
+            
+            tbodyLeft.innerHTML = '';
+            tbodyRight.innerHTML = '';
+
+            let totalCredits = 0;
+            let subjectCounter = 1;
+
+            items.forEach((item, index) => {
+                if (item.type === 'section') {
+                    const rowLeft = document.createElement('tr');
+                    rowLeft.className = "section-row";
+                    rowLeft.innerHTML = `<td colspan="9">${item.name}</td>`;
+                    tbodyLeft.appendChild(rowLeft);
+
+                    const rowRight = document.createElement('tr');
+                    rowRight.className = "section-row"; 
+                    rowRight.innerHTML = `<td colspan="7" style="height: 100%;">&nbsp;</td>`; 
+                    tbodyRight.appendChild(rowRight);
+
+                } else {
+                    const rowLeft = document.createElement('tr');
+                    rowLeft.className = "data-row";
+                    rowLeft.innerHTML = `
+                        <td>${subjectCounter}</td>
+                        <td class="code-font">${item.code || ''}</td>
+                        <td class="subject-name">${item.name || ''}</td>
+                        <td>${item.credits || ''}</td>
+                        <td></td> <td></td> <td></td> <td></td> <td></td>
+                    `;
+                    tbodyLeft.appendChild(rowLeft);
+
+                    const rowRight = document.createElement('tr');
+                    rowRight.className = "data-row";
+                    rowRight.innerHTML = `
+                        <td></td>
+                        <td></td>
+                        <td>${item.form || ''}</td>
+                        <td>${item.gradeNational || ''}</td>
+                        <td></td>
+                        <td class="text-center" style="font-size: 8pt;">${item.teacher || ''}</td>
+                        <td></td>
+                    `;
+                    tbodyRight.appendChild(rowRight);
+
+                    if(item.credits && !isNaN(parseFloat(item.credits))) {
+                        totalCredits += parseFloat(item.credits);
+                    }
+                    subjectCounter++;
+                }
+            });
+
+            document.getElementById('total_credits').innerText = totalCredits;
+        }
+
+        function updateItem(index, field, value) {
+            items[index][field] = value;
+            saveData(); 
+            renderTables();
+        }
+
+        function addSubject() {
+            items.push({ type: 'subject', code: "ОК", name: "Новий предмет", credits: 0, form: "залік", teacher: "", gradeNational: "", grade4: "" });
+            renderSubjectsInput();
+            renderTables();
+            saveData();
+        }
+
+        function addSection() {
+            const defaultSectionName = (lists.sections && lists.sections.length > 0) ? lists.sections[0] : "Новий розділ";
+            items.push({ type: 'section', name: defaultSectionName });
+            renderSubjectsInput();
+            renderTables();
+            saveData();
+        }
+
+        function removeItem(index) {
+            items.splice(index, 1);
+            renderSubjectsInput();
+            renderTables();
+            saveData();
+        }
+
+        function updateView(shouldSave = true) {
+            document.getElementById('out_year').innerText = document.getElementById('in_year').value;
+            
+            const semInput = document.getElementById('in_semester').value;
+            const semDigit = document.getElementById('out_sem_header').innerText = calculateSemester(); 
+            document.getElementById('out_semester').innerText = semInput;
+
+            const start = new Date(document.getElementById('in_sem_start').value);
+            const end = new Date(document.getElementById('in_sem_end').value);
+            if(document.getElementById('in_sem_start').value) document.getElementById('out_sem_start').innerText = start.toLocaleDateString('uk-UA');
+            else document.getElementById('out_sem_start').innerText = "";
+
+            if(document.getElementById('in_sem_end').value) document.getElementById('out_sem_end').innerText = end.toLocaleDateString('uk-UA');
+            else document.getElementById('out_sem_end').innerText = "";
+
+            const examStartVal = document.getElementById('in_exam_start').value;
+            const examEndVal = document.getElementById('in_exam_end').value;
+            if(examStartVal) document.getElementById('out_exam_start').innerText = new Date(examStartVal).toLocaleDateString('uk-UA') + " р.";
+            else document.getElementById('out_exam_start').innerText = "";
+
+            if(examEndVal) document.getElementById('out_exam_end').innerText = new Date(examEndVal).toLocaleDateString('uk-UA') + " р.";
+            else document.getElementById('out_exam_end').innerText = "";
+
+            document.getElementById('out_sem_weeks').innerText = document.getElementById('in_sem_weeks').value;
+            document.getElementById('out_course_num').innerText = document.getElementById('in_course').value;
+
+            const studentVal = document.getElementById('in_student').value;
+            const curatorVal = document.getElementById('in_sig_curator').value;
+            const headVal = document.getElementById('in_sig_head').value;
+
+            document.getElementById('out_student_name').innerText = studentVal;
+            document.getElementById('out_group').innerText = document.getElementById('in_group').value;
+
+            document.getElementById('out_sig_student').innerText = document.getElementById('in_sig_student').value;
+            document.getElementById('out_sig_curator').innerText = curatorVal;
+            document.getElementById('out_sig_head').innerText = headVal;
+
+            renderTables();
+            
+            if(shouldSave) saveData();
+        }
+
+        function calculateSemester() {
+            const courseVal = parseInt(document.getElementById('in_course').value) || 1;
+            let semInput = document.getElementById('in_semester').value;
+            let semText = semInput.toUpperCase();
+            let semBase = 1; 
+
+            const arabicMatch = semText.match(/(\d+)/);
+            if (arabicMatch) {
+                semBase = parseInt(arabicMatch[1]);
+            } else {
+                if (semText.includes("VIII") || semText.includes("VІІІ")) semBase = 8;
+                else if (semText.includes("VII") || semText.includes("VІІ")) semBase = 7;
+                else if (semText.includes("VI") || semText.includes("VІ")) semBase = 6;
+                else if (semText.includes("IV") || semText.includes("ІV")) semBase = 4;
+                else if (semText.includes("V")) semBase = 5;
+                else if (semText.includes("III") || semText.includes("ІІІ")) semBase = 3;
+                else if (semText.includes("II") || semText.includes("ІІ")) semBase = 2;
+                else if (semText.includes("I") || semText.includes("І")) semBase = 1;
+            }
+            
+            if (semBase <= 2) {
+                 return (courseVal - 1) * 2 + semBase;
+            }
+            return semBase;
+        }
+
+        function openPdfModal() {
+             const studentName = document.getElementById('in_student').value;
+            let defaultName = 'semester_plan_12pt';
+            
+            if (studentName) {
+                const safeName = studentName.replace(/[\s\.]+/g, '_');
+                defaultName = `План_${safeName}_12б`;
+            }
+            
+            document.getElementById('pdf_filename').value = defaultName;
+            document.getElementById('pdfModal').style.display = 'flex';
+            setTimeout(() => document.getElementById('pdf_filename').focus(), 100);
+        }
+
+        function confirmDownload() {
+            let filename = document.getElementById('pdf_filename').value;
+            if (!filename) filename = 'semester_plan_12pt';
+            if (!filename.endsWith('.pdf')) filename += '.pdf';
+            
+            const element = document.getElementById('page-content');
+            const opt = {
+                margin:       0,
+                filename:     filename,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
+            };
+            
+            document.getElementById('pdfModal').style.display = 'none';
+            setTimeout(() => {
+                 html2pdf().set(opt).from(element).save();
+            }, 300);
+        }
+
+        window.onload = loadData;
+    </script>
+</body>
+</html>
